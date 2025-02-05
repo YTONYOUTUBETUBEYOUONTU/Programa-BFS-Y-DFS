@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BFS y DFS en JavaScript</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+    }
+    pre {
+      background-color: #f4f4f4;
+      padding: 10px;
+      border-radius: 5px;
+      display: inline-block;
+      text-align: left;
+    }
+    .node {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-color: lightblue;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: absolute;
+      transition: background-color 0.5s;
+      border: 2px solid black;
+      font-weight: bold;
+    }
+    .edge {
+      position: absolute;
+      background-color: grey; /* Estado inactivo */
+      height: 2px;
+      transform-origin: left;
+    }
+    .arrowhead {
+      position: absolute;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 10px solid red;
+      transform-origin: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Algoritmos BFS y DFS en JavaScript</h1>
+  <button onclick="runBFS()">Ejecutar BFS</button>
+  <button onclick="runDFS()">Ejecutar DFS</button>
+  <h2>Resultados:</h2>
+  <pre id="output"></pre>
+  <div id="graph-container" style="position: relative; width: 500px; height: 500px; margin: auto;"></div>
+
+  <script>
+    class Graph {
+      constructor() {
+        this.adjacencyList = {};
+        // Posiciones predefinidas para cada nodo
+        this.positions = {
+          "A": [100, 100],
+          "B": [300, 100],
+          "C": [100, 300],
+          "D": [300, 300],
+          "E": [200, 200]
+        };
+      }
+      
+      addVertex(vertex) {
+        if (!this.adjacencyList[vertex]) {
+          this.adjacencyList[vertex] = [];
+        }
+      }
+      
+      addEdge(vertex1, vertex2) {
+        this.adjacencyList[vertex1].push(vertex2);
+        this.adjacencyList[vertex2].push(vertex1);
+      }
+      
+      // Dibuja una línea (arista) inactiva (gris) entre dos nodos y devuelve el elemento creado
+      drawInactiveEdge(from, to) {
+        let container = document.getElementById("graph-container");
+        let [x1, y1] = this.positions[from];
+        let [x2, y2] = this.positions[to];
+        let dx = x2 - x1;
+        let dy = y2 - y1;
+        let length = Math.sqrt(dx * dx + dy * dy);
+        let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        
+        let edge = document.createElement("div");
+        edge.className = "edge";
+        // Se resta un offset (15) para dejar espacio a la punta de flecha
+        edge.style.width = `${length - 15}px`;
+        // Se posiciona en el centro del nodo origen (asumiendo nodo de 50px)
+        edge.style.left = `${x1 + 25}px`;
+        edge.style.top = `${y1 + 25}px`;
+        edge.style.transform = `rotate(${angle}deg)`;
+        container.appendChild(edge);
+        return edge;
+      }
+      
+      // Dibuja la punta de flecha en el nodo destino
+      drawArrowhead(from, to) {
+        let container = document.getElementById("graph-container");
+        let [x1, y1] = this.positions[from];
+        let [x2, y2] = this.positions[to];
+        let dx = x2 - x1;
+        let dy = y2 - y1;
+        let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        
+        let arrowhead = document.createElement("div");
+        arrowhead.className = "arrowhead";
+        // Posiciona la flecha en el destino, centrada (ajuste de 8px)
+        arrowhead.style.left = `${x2 - 8}px`;
+        arrowhead.style.top = `${y2 - 8}px`;
+        arrowhead.style.transform = `rotate(${angle}deg)`;
+        container.appendChild(arrowhead);
+      }
+      
+      // Resalta el nodo final con un efecto visual (por ejemplo, sombra roja)
+      highlightFinalNode(finalVertex, nodes) {
+        nodes[finalVertex].style.boxShadow = "0 0 15px 5px red";
+      }
+      
+      // Realiza el recorrido y registra la secuencia de aristas utilizadas
+      async traverse(start, algorithm) {
+        let container = document.getElementById("graph-container");
+        container.innerHTML = "";
+        let nodes = {};
+        
+        // Dibuja todos los nodos
+        for (let vertex in this.positions) {
+          let [x, y] = this.positions[vertex];
+          let node = document.createElement("div");
+          node.className = "node";
+          node.textContent = vertex;
+          node.style.left = `${x}px`;
+          node.style.top = `${y}px`;
+          container.appendChild(node);
+          nodes[vertex] = node;
+        }
+        
+        let queue = [start];
+        let visited = {};
+        visited[start] = true;
+        let result = [];
+        let pathEdges = []; // Registro de cada arista (de origen a destino)
+        
+        // Realiza el recorrido (BFS o DFS) sin animar la activación de aristas
+        while (queue.length) {
+          let vertex = algorithm === "BFS" ? queue.shift() : queue.pop();
+          result.push(vertex);
+          // Ilumina el nodo visitado sin retraso significativo en este paso
+          nodes[vertex].style.backgroundColor = "orange";
+          await new Promise(res => setTimeout(res, 200));
+          
+          for (let neighbor of this.adjacencyList[vertex]) {
+            if (!visited[neighbor]) {
+              visited[neighbor] = true;
+              queue.push(neighbor);
+              // Registra la arista (origen → destino)
+              pathEdges.push({ from: vertex, to: neighbor });
+            }
+          }
+        }
+        
+        // Fase 1: Dibuja todas las rayas inactivas (líneas grises) de una sola vez
+        let drawnEdges = [];
+        for (let edge of pathEdges) {
+          let inactiveEdge = this.drawInactiveEdge(edge.from, edge.to);
+          drawnEdges.push(inactiveEdge);
+        }
+        
+        // Fase 2: Activa los caminos de forma secuencial: cambia el color de la línea a rojo, dibuja la flecha y resalta el nodo destino
+        for (let i = 0; i < drawnEdges.length; i++) {
+          await new Promise(res => setTimeout(res, 500));
+          drawnEdges[i].style.backgroundColor = "red";
+          this.drawArrowhead(pathEdges[i].from, pathEdges[i].to);
+        }
+        
+        // Resalta el nodo final con un indicador (por ejemplo, una sombra roja)
+        let finalVertex = result[result.length - 1];
+        this.highlightFinalNode(finalVertex, nodes);
+        
+        // Muestra el recorrido en el elemento de salida
+        document.getElementById("output").textContent = `${algorithm}: ` + result.join(" -> ");
+      }
+    }
+    
+    // Configuración del grafo
+    let graph = new Graph();
+    graph.addVertex("A");
+    graph.addVertex("B");
+    graph.addVertex("C");
+    graph.addVertex("D");
+    graph.addVertex("E");
+    
+    graph.addEdge("A", "B");
+    graph.addEdge("A", "C");
+    graph.addEdge("B", "D");
+    graph.addEdge("C", "E");
+    graph.addEdge("D", "E");
+    
+    function runBFS() {
+      graph.traverse("A", "BFS");
+    }
+    
+    function runDFS() {
+      graph.traverse("A", "DFS");
+    }
+  </script>
+</body>
+</html>
